@@ -7,17 +7,25 @@ import { authService } from '@service/db/auth.service';
 import { BadRequestError } from '@global/helpers/error-handler';
 import { loginSchema } from '@auth/schemes/signin';
 import { IAuthDocument } from '@auth/interfaces/auth.interface';
-import { IUserDocument } from '@user/interfaces/user.interface';
+import { IResetPasswordParams, IUserDocument } from '@user/interfaces/user.interface';
 import { userService } from '@service/db/user.service';
-
+import { forgotPasswordTemplate } from '@service/emails/templates/forgot-password/forgot-password-template';
+import { emailQueue } from '@service/queues/email.queue';
+import moment from 'moment';
+import { resetPasswordTemplate } from '@service/emails/templates/reset-password/reset-password-template';
 export class SignIn {
   @joiValidation(loginSchema)
   public async read(req: Request, res: Response): Promise<void> {
     const { username, password } = req.body;
     const existingUser: IAuthDocument = await authService.getAuthUserByUsername(username);
+
+    if (!existingUser) {
+      throw new BadRequestError('Invalid credentials');
+    }
+
     const passwordsMatch: boolean = await existingUser.comparePassword(password);
 
-    if (!existingUser || !passwordsMatch) {
+    if (!passwordsMatch) {
       throw new BadRequestError('Invalid credentials');
     }
 
@@ -33,7 +41,6 @@ export class SignIn {
       config.JWT_TOKEN!
     );
 
-    req.session = { jwt: userJwt };
     const userDocument: IUserDocument = {
       ...user,
       authId: existingUser._id,
@@ -43,6 +50,8 @@ export class SignIn {
       uId: existingUser.uId,
       createdAt: existingUser.createdAt
     } as IUserDocument;
+
+    req.session = { jwt: userJwt };
     res.status(HTTP_STATUS.OK).json({ message: 'User signed in successfully', user: userDocument, token: userJwt });
   }
 }
