@@ -6,10 +6,12 @@ import Bull from 'bull';
 import Arena from 'bull-arena';
 import { IQueue } from '@service/queues/interfaces/queue.interface';
 import { IEmailJob, IUserJob } from '@user/interfaces/user.interface';
+import { IPostJobData } from '@post/interfaces/post.interface';
 
 type IBaseJobData = IAuthJob
   | IUserJob
-  | IEmailJob;
+  | IEmailJob
+  | IPostJobData;
 
 const queues: IQueue[] = [];
 export let arenaConfig: any;

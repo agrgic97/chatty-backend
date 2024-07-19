@@ -1,6 +1,7 @@
 import { Application } from 'express';
 import { authRoutes } from '@auth/routes/authRoutes';
 import { currentUserRoutes } from '@auth/routes/currentRoutes';
+import { postRoutes } from '@post/routes/postRoutes';
 import { authMiddleware } from '@global/helpers/auth-middleware';
 import { arenaConfig } from '@service/queues/base.queue';
 
@@ -12,6 +13,7 @@ export default (app: Application) => {
     app.use(BASE_PATH, authRoutes.routes());
     app.use(BASE_PATH, authRoutes.signoutRoute());
     app.use(BASE_PATH, authMiddleware.verifyUser, currentUserRoutes.routes());
+    app.use(BASE_PATH, postRoutes.routes());
   };
   routes();
 };
