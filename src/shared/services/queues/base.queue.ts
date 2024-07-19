@@ -1,50 +1,45 @@
-import Queue from 'bull';
+import Queue, { Job } from 'bull';
 import Logger from 'bunyan';
+import { ExpressAdapter } from '@bull-board/express';
+import { createBullBoard } from '@bull-board/api';
+import { BullAdapter } from '@bull-board/api/bullAdapter';
 import { config } from '@root/config';
 import { IAuthJob } from '@auth/interfaces/auth.interface';
-import Bull from 'bull';
-import Arena from 'bull-arena';
-import { IQueue } from '@service/queues/interfaces/queue.interface';
 import { IEmailJob, IUserJob } from '@user/interfaces/user.interface';
 import { IPostJobData } from '@post/interfaces/post.interface';
+import { IReactionJob } from '@reaction/interfaces/reaction.interface';
 
-type IBaseJobData = IAuthJob
-  | IUserJob
+type IBaseJobData =
+  | IAuthJob
   | IEmailJob
-  | IPostJobData;
+  | IPostJobData
+  | IReactionJob
+  | IUserJob;
 
-const queues: IQueue[] = [];
-export let arenaConfig: any;
+let bullAdapters: BullAdapter[] = [];
+export let serverAdapter: ExpressAdapter;
 
 export abstract class BaseQueue {
   queue: Queue.Queue;
   log: Logger;
 
-  protected constructor(queueName: string) {
+  constructor(queueName: string) {
     this.queue = new Queue(queueName, `${config.REDIS_HOST}`);
-    const queueConfig: IQueue = {
-      type: 'bull',
-      name: queueName,
-      hostId: 'localhost',
-      redis: {
-        port: 6379,
-        host: '127.0.0.1',
-        password: ''
-      }
-    };
-    queues.push(queueConfig);
-    arenaConfig = Arena(
-      {
-        Bull,
-        queues
-      },
-      {
-        disableListen: true,
-        basePath: '/queues'
-      }
-    );
+    bullAdapters.push(new BullAdapter(this.queue));
+    bullAdapters = [...new Set(bullAdapters)];
+    serverAdapter = new ExpressAdapter();
+    serverAdapter.setBasePath('/queues');
 
-    this.log = config.createLogger(`${queueName} Queue`);
+    createBullBoard({
+      queues: bullAdapters,
+      serverAdapter
+    });
+
+    this.log = config.createLogger(`${queueName}Queue`);
+
+    this.queue.on('completed', (job: Job) => {
+      job.remove();
+    });
 
     this.queue.on('global:completed', (jobId: string) => {
       this.log.info(`Job ${jobId} completed`);
@@ -56,13 +51,7 @@ export abstract class BaseQueue {
   }
 
   protected addJob(name: string, data: IBaseJobData): void {
-    this.queue.add(name, data, {
-      attempts: 3,
-      backoff: {
-        type: 'fixed',
-        delay: 5000
-      }
-    });
+    this.queue.add(name, data, { attempts: 3, backoff: { type: 'fixed', delay: 5000 } });
   }
 
   protected processJob(name: string, concurrency: number, callback: Queue.ProcessCallbackFunction<void>): void {
