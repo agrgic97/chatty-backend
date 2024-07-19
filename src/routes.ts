@@ -5,6 +5,7 @@ import { postRoutes } from '@post/routes/postRoutes';
 import { authMiddleware } from '@global/helpers/auth-middleware';
 import { serverAdapter } from '@service/queues/base.queue';
 import { reactionRoutes } from '@reaction/routes/reactionRoutes';
+import { commentRoutes } from '@comment/routes/commentRoutes';
 
 const BASE_PATH = '/api/v1';
 
@@ -16,6 +17,7 @@ export default (app: Application) => {
     app.use(BASE_PATH, authMiddleware.verifyUser, currentUserRoutes.routes());
     app.use(BASE_PATH, postRoutes.routes());
     app.use(BASE_PATH, reactionRoutes.routes());
+    app.use(BASE_PATH, commentRoutes.routes());
   };
   routes();
 };
